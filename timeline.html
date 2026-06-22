@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Quantum Monitoring Array - OVERDRIVE MODE</title>
+	<style>
+		* {
+			box-sizing: border-box;
+			user-select: none;
+		}
+		body {
+			margin: 0;
+			padding: 20px 0;
+			background-color: #05020a;
+			color: #a2b4f6;
+			font-family: 'Courier New', Courier, monospace;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-start;
+			min-height: 100vh;
+			overflow-y: auto;
+		}
+
+		#game-container {
+			position: relative;
+			width: 100%;
+			max-width: 720px;
+			aspect-ratio: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		svg {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* Physics Dashboard HUD */
+		#hud {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			width: 100%;
+			max-width: 720px;
+			padding: 15px;
+			background: rgba(10, 5, 20, 0.95);
+			border: 1px solid #32387a;
+			margin-bottom: 10px;
+			border-radius: 4px;
+			box-shadow: 0 0 30px rgba(0, 210, 255, 0.15);
+		}
+
+		.hud-item {
+			font-size: 11px;
+			letter-spacing: 1px;
+			line-height: 1.4;
+		}
+
+		.hud-item:nth-child(2) { text-align: center; }
+		.hud-item:nth-child(3) { text-align: right; }
+
+		.value {
+			color: #00d2ff;
+			font-weight: bold;
+			font-family: monospace;
+		}
+
+		.stable { color: #00ff66; text-shadow: 0 0 5px #00ff66; }
+		.critical { color: #ff0055; text-shadow: 0 0 12px #ff0055; }
+		.overdrive { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; }
+
+		/* --- OBSERVE BUTTON STYLING --- */
+		#observe-btn {
+			width: 100%;
+			max-width: 720px;
+			padding: 12px;
+			background: linear-gradient(180deg, #100b26 0%, #0a0514 100%);
+			border: 1px solid #00d2ff;
+			color: #00d2ff;
+			font-family: 'Courier New', Courier, monospace;
+			font-size: 14px;
+			font-weight: bold;
+			letter-spacing: 2px;
+			cursor: pointer;
+			border-radius: 4px;
+			margin-bottom: 10px;
+			text-shadow: 0 0 5px rgba(0, 210, 255, 0.5);
+			box-shadow: 0 0 15px rgba(0, 210, 255, 0.1);
+			transition: all 0.1s ease;
+		}
+
+		#observe-btn:hover {
+			background: #00d2ff;
+			color: #05020a;
+			box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+			text-shadow: none;
+		}
+
+		#observe-btn:active {
+			background: #00ff66;
+			border-color: #00ff66;
+			color: #05020a;
+			box-shadow: 0 0 25px rgba(0, 255, 102, 0.6);
+		}
+
+		/* --- ELI5 DOCUMENTATION PANEL --- */
+		#eli5-panel {
+			width: 100%;
+			max-width: 720px;
+			padding: 20px;
+			background: rgba(15, 10, 35, 0.85);
+			border: 1px dashed #32387a;
+			border-radius: 4px;
+			margin-top: 20px;
+			margin-bottom: 30px;
+			box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+		}
+
+		#eli5-panel h2 {
+			color: #ffcc00;
+			font-size: 16px;
+			margin-top: 0;
+			margin-bottom: 15px;
+			border-bottom: 1px solid #32387a;
+			padding-bottom: 5px;
+			text-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
+		}
+
+		#eli5-panel h3 {
+			color: #00d2ff;
+			font-size: 13px;
+			margin-top: 15px;
+			margin-bottom: 5px;
+		}
+
+		#eli5-panel p {
+			font-size: 12px;
+			line-height: 1.5;
+			color: #a2b4f6;
+			margin: 0 0 10px 0;
+		}
+
+		#eli5-panel hr {
+			border: 0;
+			border-top: 1px solid #1a1c3a;
+			margin: 15px 0;
+		}
+
+		.highlight {
+			color: #00ff66;
+			font-weight: bold;
+		}
+
+		/* --- BLINDING SPEED SPINNING TIMELINE --- */
+		.timeline-wheel {
+			transform-origin: 400px 400px;
+			animation: spin 1.5s linear infinite;
+		}
+
+		@keyframes spin {
+			from { transform: rotate(0deg); }
+			to { transform: rotate(360deg); }
+		}
+
+		.quantum-fluctuation {
+			opacity: 0;
+			pointer-events: bounding-box;
+			cursor: pointer;
+			transition: opacity 0.03s ease-out, transform 0.05s ease-out;
+		}
+
+		.quantum-fluctuation.instantiated {
+			opacity: 1;
+			transform: scale(1) !important;
+		}
+
+		.eigenstate-group .eigenstate-axis {
+			stroke-width: 1.5;
+		}
+	</style>
+</head>
+<body>
+
+	<div id="hud">
+		<div class="hud-item">
+			WAVEFUNCTION: <span class="value overdrive">|Ψ⟩ OVERDRIVE</span><br>
+			OBSERVATION: <span class="value critical">MAX_CAPACITY</span>
+		</div>
+		<div class="hud-item">
+			SYSTEM ENTROPY: <span id="entropy-display" class="value">0.00 J/K</span><br>
+			COHERENCE METRIC: <span id="coherence-display" class="value stable">100.0%</span>
+		</div>
+		<div class="hud-item">
+			QUANTUM EVENTS: <span id="event-counter" class="value">0000</span><br>
+			ENGINE VELOCITY: <span class="value overdrive">60 ticks/sec</span>
+		</div>
+	</div>
+
+	<button id="observe-btn">MANUAL WAVEFUNCTION COLLAPSE [OBSERVE ALL]</button>
+
+	<div id="eli5-panel">
+		<h2>[LAB MANUAL] ELI5: WHAT IS THIS MACHINE DOING?</h2>
+		<p>This screen is a fast-paced <span class="highlight">mini-game</span> disguised as a futuristic physics laboratory experiment. Think of it like a sci-fi version of <strong>Whack-A-Mole</strong>: instead of moles, you are catching popping quantum particles before they disappear!</p>
+		
+		<h3>1. The Core Game Loop</h3>
+		<p><strong>The Spinning Wheel:</strong> The giant radar wheel is spinning at lightning speed. Every few milliseconds, the computer randomly picks one of the colored spoke lines and makes a tiny glowing circle (a particle) pop into view.</p>
+		<p><strong>The Catch:</strong> These circles only stay on screen for a tiny fraction of a second. Click them directly, or hit the giant <strong>[OBSERVE ALL]</strong> button to drop a massive net and catch everything currently visible to save your score!</p>
+		<p><strong>Win vs Lose:</strong> If you catch a dot, your score goes up and chaos decreases. If you let a dot vanish on its own, your system stability drops. If stability drops too low, the system goes into critical failure.</p>
+
+		<hr>
+
+		<h2>THE MATH & REAL SCIENCE IDEAS BEHIND IT</h2>
+		<p>The developer took real mathematical principles from <strong>Quantum Mechanics</strong> (how the absolute smallest things in the universe behave) and turned them into game mechanics:</p>
+
+		<h3>• Wavefunction (|Ψ⟩) & Collapse</h3>
+		<p>In physics, a particle exists as a blurry cloud of multiple possibilities until you look at it. This rulebook of chances is called the <strong>Wavefunction</strong>. The exact second you look at it, the possibilities freeze into one single choice. In this game, clicking a dot or using the button is called a <span class="highlight">Wavefunction Collapse</span>—you force the fuzzy probability into a solid reality.</p>
+
+		<h3>• Eigenstates (The Spokes)</h3>
+		<p>Quantum objects aren't allowed to freeze just anywhere; they have a strict menu of states they are allowed to choose from. In the code, the colored lines are labeled <span class="highlight">eigenstate-groups</span>. The particles are mathematically forced to only pop up along these specific lines.</p>
+
+		<h3>• Entropy & Decoherence</h3>
+		<p>When quantum particles are in sync, they are "Coherent." If the outside world bumps into them, they leak out, get ruined, and create chaos ("Entropy"). If you miss too many particles in the game, your <strong>Coherence Metric</strong> drops and <strong>System Entropy</strong> climbs, turning the dashboard a dangerous red.</p>
+
+		<h3>• The Quantum Zeno Effect (The Speed Scaling)</h3>
+		<p>In physics, the Zeno Effect proves that <strong>"a watched pot never boils."</strong> If you measure a quantum object fast enough, you freeze it in time. Every 25 points you score, the code shrinks the game's time variables. It forces the engine to run at sub-millisecond speeds, tracking things matching your computer monitor's refresh rate to mimic a hyper-fast, continuously measured system.</p>
+	</div>
+
+	<div id="game-container">
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+			<defs>
+				<filter id="quantum-glow" x="-50%" y="-50%" width="200%" height="200%">
+					<feGaussianBlur stdDeviation="5" result="blur" />
+					<feMerge>
+						<feMergeNode in="blur" />
+						<feMergeNode in="SourceGraphic" />
+					</feMerge>
+				</filter>
+			</defs>
+
+			<g stroke="#1a1c3a" stroke-width="1">
+				<line x1="400" y1="50" x2="400" y2="750" />
+				<line x1="50" y1="400" x2="750" y2="400" />
+				<circle cx="400" cy="400" r="100" fill="none" stroke-dasharray="2 4"/>
+				<circle cx="400" cy="400" r="200" fill="none" stroke-dasharray="4 4"/>
+			</g>
+
+			<circle cx="400" cy="400" r="300" fill="none" stroke="#2a2f6c" stroke-width="2" />
+			<circle cx="400" cy="400" r="300" fill="none" stroke="#00b3ff" stroke-width="1.5" stroke-dasharray="4 8" opacity="0.6" filter="url(#quantum-glow)"/>
+
+			<circle cx="400" cy="400" r="8" fill="#ffffff" filter="url(#quantum-glow)"/>
+			<circle cx="400" cy="400" r="24" fill="none" stroke="#00d2ff" stroke-width="1.5" opacity="0.5"/>
+
+			<g class="timeline-wheel">
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="700" y2="400" stroke="#00e1ff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-0" style="transform: translate(600px, 400px) scale(0.2); transform-origin: 600px 400px;">
+						<circle r="18" fill="none" stroke="#00e1ff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#00e1ff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="587.1" y2="634.5" stroke="#00ccff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-1" style="transform: translate(537.2px, 572.0px) scale(0.2); transform-origin: 537.2px 572.0px;">
+						<circle r="18" fill="none" stroke="#00ccff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#00ccff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="333.2" y2="692.5" stroke="#3399ff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-2" style="transform: translate(344.3px, 643.7px) scale(0.2); transform-origin: 344.3px 643.7px;">
+						<circle r="18" fill="none" stroke="#3399ff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#3399ff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="130.3" y2="530.2" stroke="#6666ff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-3" style="transform: translate(228.8px, 483.4px) scale(0.2); transform-origin: 228.8px 483.4px;">
+						<circle r="18" fill="none" stroke="#6666ff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#6666ff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="130.3" y2="269.8" stroke="#9933ff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-4" style="transform: translate(156.7px, 282.8px) scale(0.2); transform-origin: 156.7px 282.8px;">
+						<circle r="18" fill="none" stroke="#9933ff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#9933ff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="333.2" y2="107.5" stroke="#cc00ff" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-5" style="transform: translate(353.2px, 195.2px) scale(0.2); transform-origin: 353.2px 195.2px;">
+						<circle r="18" fill="none" stroke="#cc00ff" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#cc00ff" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+
+				<g class="eigenstate-group">
+					<line x1="400" y1="400" x2="587.1" y2="165.5" stroke="#ff00cc" stroke-width="1" class="eigenstate-axis" opacity="0.7"/>
+					<g class="quantum-fluctuation" id="flux-6" style="transform: translate(549.7px, 212.4px) scale(0.2); transform-origin: 549.7px 212.4px;">
+						<circle r="18" fill="none" stroke="#ff00cc" stroke-width="2.5" filter="url(#quantum-glow)"/>
+						<circle r="4" fill="#ffffff"/>
+						<circle r="26" fill="none" stroke="#ff00cc" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.8"/>
+					</g>
+				</g>
+			</g>
+		</svg>
+	</div>
+
+	<script>
+		let quantumEvents = 0;
+		let coherence = 100.0;
+		let entropy = 0.00;
+		let outstandingCollapses = {};
+		
+		let planckTimeInterval = 30; 
+		let fluctuationStabilityLifespan = 90; 
+
+		const eventCounter = document.getElementById('event-counter');
+		const coherenceDisplay = document.getElementById('coherence-display');
+		const entropyDisplay = document.getElementById('entropy-display');
+		const fluctuations = document.querySelectorAll('.quantum-fluctuation');
+		const observeBtn = document.getElementById('observe-btn');
+
+		window.onload = () => {
+			setupManualInteractions();
+			executeTimeEvolutionOverdrive();
+			igniteZenoOverclockEngine();
+		};
+
+		function setupManualInteractions() {
+			fluctuations.forEach(node => {
+				node.addEventListener('pointerdown', (e) => {
+					e.stopPropagation();
+					applyZenoMeasurement(node);
+				});
+			});
+
+			observeBtn.addEventListener('pointerdown', () => {
+				triggerGlobalObservation();
+			});
+		}
+
+		function triggerGlobalObservation() {
+			fluctuations.forEach(node => {
+				if (node.classList.contains('instantiated')) {
+					node.dataset.measured = "true";
+				}
+			});
+		}
+
+		function executeTimeEvolutionOverdrive() {
+			setTimeout(() => {
+				instantiateFluctuation();
+				executeTimeEvolutionOverdrive();
+			}, planckTimeInterval);
+		}
+
+		function instantiateFluctuation() {
+			const index = Math.floor(Math.random() * fluctuations.length);
+			const node = fluctuations[index];
+
+			if (node.classList.contains('instantiated')) return;
+
+			node.classList.add('instantiated');
+
+			outstandingCollapses[node.id] = setTimeout(() => {
+				if (node.classList.contains('instantiated')) {
+					node.classList.remove('instantiated');
+					triggerDecoherenceLeak();
+				}
+				delete outstandingCollapses[node.id];
+			}, fluctuationStabilityLifespan);
+		}
+
+		function applyZenoMeasurement(node) {
+			if (!node.classList.contains('instantiated')) return;
+
+			node.classList.remove('instantiated');
+			
+			if (outstandingCollapses[node.id]) {
+				clearTimeout(outstandingCollapses[node.id]);
+				delete outstandingCollapses[node.id];
+			}
+
+			quantumEvents++;
+			eventCounter.textContent = String(quantumEvents).padStart(4, '0');
+
+			entropy = Math.max(0, entropy - 0.02);
+			entropyDisplay.textContent = `${entropy.toFixed(2)} J/K`;
+
+			if (quantumEvents % 25 === 0) {
+				planckTimeInterval = Math.max(5, planckTimeInterval - 2);
+				fluctuationStabilityLifespan = Math.max(30, fluctuationStabilityLifespan - 5);
+			}
+		}
+
+		function triggerDecoherenceLeak() {
+			entropy += 0.85; 
+			coherence = Math.max(0.0, coherence - 5.5);
+
+			entropyDisplay.textContent = `${entropy.toFixed(2)} J/K`;
+			coherenceDisplay.textContent = `${coherence.toFixed(1)}%`;
+
+			if (coherence <= 35) {
+				coherenceDisplay.className = 'value critical';
+			} else {
+				coherenceDisplay.className = 'value';
+			}
+
+			if (coherence <= 10) {
+				planckTimeInterval = Math.min(30, planckTimeInterval + 10);
+				fluctuationStabilityLifespan = Math.min(90, fluctuationStabilityLifespan + 20);
+				coherence = 75.0; 
+				entropy = Math.max(0, entropy - 8.0);
+			}
+		}
+
+		function igniteZenoOverclockEngine() {
+			function processMetrics() {
+				fluctuations.forEach(node => {
+					if (node.classList.contains('instantiated') && node.dataset.measured) {
+						applyZenoMeasurement(node);
+						delete node.dataset.measured;
+					}
+				});
+				requestAnimationFrame(processMetrics); 
+			}
+			requestAnimationFrame(processMetrics);
+		}
+	</script>
+</body>
+</html>
